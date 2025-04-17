@@ -1,7 +1,15 @@
 mod reader;
+use color_eyre::Result;
 use colored::Colorize;
 use core::str;
-use ratatui;
+use crossterm::event::{self, Event};
+use ratatui::{
+    layout::{Constraint, Direction, Layout, Rect},
+    style::{Color, Modifier, Style, Stylize},
+    widgets::{Block, BorderType, Borders},
+};
+
+use ratatui::{DefaultTerminal, Frame};
 use reader::Error;
 use std::fs;
 use std::{
@@ -11,7 +19,57 @@ use std::{
     vec,
 };
 
-fn main() {
+fn main() -> Result<()> {
+    color_eyre::install()?;
+    let terminal = ratatui::init();
+
+    Style::default()
+        .fg(Color::Black)
+        .bg(Color::Green)
+        .add_modifier(Modifier::ITALIC | Modifier::BOLD);
+    let result = run(terminal);
+    ratatui::restore();
+    result
+}
+
+fn run(mut terminal: DefaultTerminal) -> Result<()> {
+    loop {
+        terminal.draw(render)?;
+        if matches!(event::read()?, Event::Key(_)) {
+            break Ok(());
+        }
+    }
+}
+
+fn render(frame: &mut Frame) {
+    let layout = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints(vec![Constraint::Percentage(50), Constraint::Percentage(50)])
+        .split(frame.area());
+    let cyan_block = Block::bordered()
+        .style(Style::new().bold())
+        .border_style(Style::new().cyan().bold());
+    let cyan_area = Rect::new(
+        layout[0].x + 2,
+        layout[0].y + 2,
+        layout[0].width - 2,
+        layout[0].height - 2,
+    );
+    // let area = Rect::new(3, 3, (frame.area().width / 2) - 1, frame.area().height - 6);
+    frame.render_widget(cyan_block, cyan_area);
+    let magenta_block = Block::bordered()
+        .style(Style::new().bold())
+        .border_style(Style::new().magenta().bold());
+    let magenta_area = Rect::new(
+        layout[1].x + 2,
+        layout[1].y + 2,
+        layout[1].width - 2,
+        layout[1].height - 2,
+    );
+    frame.render_widget(magenta_block, magenta_area);
+}
+
+fn read_data() {
     let names = ["User", "Device", "Kernel"];
     let mut values: Vec<String> = Vec::with_capacity(names.len());
 
@@ -24,7 +82,7 @@ fn main() {
         .and_then(|Output { stdout, .. }| String::from_utf8(stdout).map_err(|_| Error));
     match kernel {
         Ok(ker) => values.push(ker),
-        Err(_) => println!("{}", ".... not found!!".red()),
+        Err(_) => println!("{}", ".... not found!!"),
     }
 }
 
