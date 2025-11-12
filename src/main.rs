@@ -1,12 +1,12 @@
 mod reader;
 use color_eyre::Result;
-use colored::Colorize;
 use core::str;
 use crossterm::event::{self, Event};
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style, Stylize},
-    widgets::{Block, BorderType, Borders},
+    symbols::{self, shade},
+    widgets::{Block, Tabs, Gauge, Paragraph},
 };
 
 use ratatui::{DefaultTerminal, Frame};
@@ -18,6 +18,8 @@ use std::{
     process::{Command, Output},
     vec,
 };
+
+static GAUGE_RATIO: f64 = 0.0;
 
 fn main() -> Result<()> {
     color_eyre::install()?;
@@ -33,15 +35,16 @@ fn main() -> Result<()> {
 }
 
 fn run(mut terminal: DefaultTerminal) -> Result<()> {
+    let gauge_ratio: &mut f64 = &mut 0.005;
     loop {
-        terminal.draw(render)?;
+        terminal.draw(|x| render(x, gauge_ratio))?;
         if matches!(event::read()?, Event::Key(_)) {
             break Ok(());
         }
     }
 }
 
-fn render(frame: &mut Frame) {
+fn render(frame: &mut Frame, gauge_ratio: &mut f64) {
     let layout = Layout::default()
         .direction(Direction::Horizontal)
         .constraints(vec![Constraint::Percentage(50), Constraint::Percentage(50)])
@@ -55,8 +58,17 @@ fn render(frame: &mut Frame) {
         layout[0].width - 2,
         layout[0].height - 2,
     );
-    // let area = Rect::new(3, 3, (frame.area().width / 2) - 1, frame.area().height - 6);
-    frame.render_widget(cyan_block, cyan_area);
+
+    /* Create Tabs with cyan border */
+    let tabs = Tabs::new(vec!["Tab1", "Tab2", "Tab3", "Tab4"]).block(cyan_block)
+    .highlight_style(Style::default().cyan());
+    //let area = Rect::new(3, 3, (frame.area().width / 2) - 1, frame.area().height - 6);
+    //frame.render_widget(cyan_block, cyan_area);
+    frame.render_widget(tabs, cyan_area);
+    let magenta_layout = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints(vec![Constraint::Percentage(10), Constraint::Percentage(90)])
+        .split(layout[1]);
     let magenta_block = Block::bordered()
         .style(Style::new().bold())
         .border_style(Style::new().magenta().bold());
@@ -67,6 +79,26 @@ fn render(frame: &mut Frame) {
         layout[1].height - 2,
     );
     frame.render_widget(magenta_block, magenta_area);
+    let title_area = Rect::new(layout[1].x + 5, layout[1].y + 4, layout[1].width - 5, 5);
+    frame.render_widget(Paragraph::new("Title"), title_area);
+    let gauge = Gauge::default()
+        .block(Block::new())
+        .gauge_style(Style::new().italic())
+        .ratio(*gauge_ratio)
+        .label("")
+        .use_unicode(true);
+    let gauge_area = Rect::new(layout[1].x + 5, layout[1].y + 6, layout[1].width - 6, 1);
+    frame.render_widget(gauge, gauge_area);
+    set_gauge_ratio(gauge_ratio);
+}
+
+fn set_gauge_ratio(ratio: &mut f64) {
+    let new_ratio = *ratio + 0.05;
+    if new_ratio == 1.05 {
+        *ratio = 0.05;
+    } else {
+        *ratio = new_ratio;
+    }
 }
 
 fn read_data() {
