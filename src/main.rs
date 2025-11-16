@@ -1,12 +1,12 @@
 mod reader;
 use color_eyre::Result;
 use core::str;
-use crossterm::event::{self, Event};
+use crossterm::event::{self, Event, KeyCode};
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style, Stylize},
-    symbols::{self, shade},
-    widgets::{Block, Tabs, Gauge, Paragraph},
+    symbols::{self, bar::Set, shade},
+    widgets::{Block, Gauge, Paragraph, Tabs},
 };
 
 use ratatui::{DefaultTerminal, Frame};
@@ -34,17 +34,39 @@ fn main() -> Result<()> {
     result
 }
 
+struct Settings {
+    max_tabs: usize
+}
+
+struct State {
+    tab_num: usize
+}
+
 fn run(mut terminal: DefaultTerminal) -> Result<()> {
     let gauge_ratio: &mut f64 = &mut 0.005;
+    let mut state = State {tab_num: 0};
+    let settings = Settings { max_tabs: 4 };
     loop {
-        terminal.draw(|x| render(x, gauge_ratio))?;
-        if matches!(event::read()?, Event::Key(_)) {
+        terminal.draw(|x| render(x, gauge_ratio, &state))?;
+        if let Event::Key(key) = event::read()? {
+        match key.code { 
+            KeyCode::Esc => {
             break Ok(());
-        }
+            }
+            KeyCode::Tab => {
+                next_tab(&mut state, &settings);
+            }
+            KeyCode::BackTab => {
+                prev_tab(&mut state, &settings);
+            }
+            _ => ()
+        }}
     }
 }
 
-fn render(frame: &mut Frame, gauge_ratio: &mut f64) {
+
+
+fn render(frame: &mut Frame, gauge_ratio: &mut f64, state: &State) {
     let layout = Layout::default()
         .direction(Direction::Horizontal)
         .constraints(vec![Constraint::Percentage(50), Constraint::Percentage(50)])
@@ -60,7 +82,7 @@ fn render(frame: &mut Frame, gauge_ratio: &mut f64) {
     );
 
     /* Create Tabs with cyan border */
-    let tabs = Tabs::new(vec!["Tab1", "Tab2", "Tab3", "Tab4"]).block(cyan_block)
+    let tabs = Tabs::new(vec!["Tab1", "Tab2", "Tab3", "Tab4"]).select(state.tab_num).block(cyan_block)
     .highlight_style(Style::default().cyan());
     //let area = Rect::new(3, 3, (frame.area().width / 2) - 1, frame.area().height - 6);
     //frame.render_widget(cyan_block, cyan_area);
@@ -116,6 +138,14 @@ fn read_data() {
         Ok(ker) => values.push(ker),
         Err(_) => println!("{}", ".... not found!!"),
     }
+}
+
+fn next_tab(state: &mut State, settings: &Settings) {
+    state.tab_num = (state.tab_num + 1) % settings.max_tabs
+}
+
+fn prev_tab(state: &mut State, settings: &Settings)  {
+    state.tab_num = (settings.max_tabs + state.tab_num - 1) % settings.max_tabs
 }
 
 /*
