@@ -11,13 +11,13 @@ use ratatui::{
 
 use ratatui::{DefaultTerminal, Frame};
 use reader::Error;
-use std::fs;
 use std::{
     env,
     io::{self, Write},
     process::{Command, Output},
     vec,
 };
+use std::{fs, time::Duration};
 
 static GAUGE_RATIO: f64 = 0.0;
 
@@ -35,38 +35,44 @@ fn main() -> Result<()> {
 }
 
 struct Settings {
-    max_tabs: usize
+    max_tabs: usize,
 }
 
 struct State {
-    tab_num: usize
+    tab_num: usize,
+    gauge_progress: f64,
 }
 
 fn run(mut terminal: DefaultTerminal) -> Result<()> {
-    let gauge_ratio: &mut f64 = &mut 0.005;
-    let mut state = State {tab_num: 0};
+    let mut state = State {
+        tab_num: 0,
+        gauge_progress: 10.0,
+    };
     let settings = Settings { max_tabs: 4 };
     loop {
-        terminal.draw(|x| render(x, gauge_ratio, &state))?;
-        if let Event::Key(key) = event::read()? {
-        match key.code { 
-            KeyCode::Esc => {
-            break Ok(());
+        advance_gauge(&mut state, &settings);
+        terminal.draw(|x| render(x, &state))?;
+        let timeout = Duration::from_secs_f32(1.0 / 2000.0);
+        if event::poll(timeout)? {
+            if let Event::Key(key) = event::read()? {
+                match key.code {
+                    KeyCode::Esc => {
+                        break Ok(());
+                    }
+                    KeyCode::Tab => {
+                        next_tab(&mut state, &settings);
+                    }
+                    KeyCode::BackTab => {
+                        prev_tab(&mut state, &settings);
+                    }
+                    _ => (),
+                }
             }
-            KeyCode::Tab => {
-                next_tab(&mut state, &settings);
-            }
-            KeyCode::BackTab => {
-                prev_tab(&mut state, &settings);
-            }
-            _ => ()
-        }}
+        }
     }
 }
 
-
-
-fn render(frame: &mut Frame, gauge_ratio: &mut f64, state: &State) {
+fn render(frame: &mut Frame, state: &State) {
     let layout = Layout::default()
         .direction(Direction::Horizontal)
         .constraints(vec![Constraint::Percentage(50), Constraint::Percentage(50)])
@@ -82,8 +88,10 @@ fn render(frame: &mut Frame, gauge_ratio: &mut f64, state: &State) {
     );
 
     /* Create Tabs with cyan border */
-    let tabs = Tabs::new(vec!["Tab1", "Tab2", "Tab3", "Tab4"]).select(state.tab_num).block(cyan_block)
-    .highlight_style(Style::default().cyan());
+    let tabs = Tabs::new(vec!["Tab1", "Tab2", "Tab3", "Tab4"])
+        .select(state.tab_num)
+        .block(cyan_block)
+        .highlight_style(Style::default().cyan());
     //let area = Rect::new(3, 3, (frame.area().width / 2) - 1, frame.area().height - 6);
     //frame.render_widget(cyan_block, cyan_area);
     frame.render_widget(tabs, cyan_area);
@@ -106,12 +114,11 @@ fn render(frame: &mut Frame, gauge_ratio: &mut f64, state: &State) {
     let gauge = Gauge::default()
         .block(Block::new())
         .gauge_style(Style::new().italic())
-        .ratio(*gauge_ratio)
+        .ratio(state.gauge_progress / 100.0)
         .label("")
         .use_unicode(true);
     let gauge_area = Rect::new(layout[1].x + 5, layout[1].y + 6, layout[1].width - 6, 1);
     frame.render_widget(gauge, gauge_area);
-    set_gauge_ratio(gauge_ratio);
 }
 
 fn set_gauge_ratio(ratio: &mut f64) {
@@ -144,10 +151,13 @@ fn next_tab(state: &mut State, settings: &Settings) {
     state.tab_num = (state.tab_num + 1) % settings.max_tabs
 }
 
-fn prev_tab(state: &mut State, settings: &Settings)  {
+fn prev_tab(state: &mut State, settings: &Settings) {
     state.tab_num = (settings.max_tabs + state.tab_num - 1) % settings.max_tabs
 }
 
+fn advance_gauge(state: &mut State, settings: &Settings) {
+    state.gauge_progress = (state.gauge_progress + 0.1).clamp(10.0, 100.0);
+}
 /*
 let user = Command::new("").output();version
 /* Output results */
