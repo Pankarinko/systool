@@ -1,3 +1,4 @@
+mod gauge_state;
 mod reader;
 use color_eyre::Result;
 use core::str;
@@ -18,6 +19,8 @@ use std::{
     vec,
 };
 use std::{fs, time::Duration};
+type GaugeState = gauge_state::GaugeState;
+type RainbowColor = gauge_state::RainbowColor;
 
 static GAUGE_RATIO: f64 = 0.0;
 
@@ -40,17 +43,22 @@ struct Settings {
 
 struct State {
     tab_num: usize,
-    gauge_progress: f64,
+    gauge_state: GaugeState,
 }
 
 fn run(mut terminal: DefaultTerminal) -> Result<()> {
     let mut state = State {
         tab_num: 0,
-        gauge_progress: 100.0,
+        gauge_state: GaugeState {
+            progress: 0.0,
+            rainbow_state: RainbowColor::Red(Color::Yellow),
+            bg: Color::Red,
+            fg: Color::Yellow,
+        },
     };
     let settings = Settings { max_tabs: 4 };
     loop {
-        advance_gauge(&mut state);
+        state.gauge_state.advance_gauge();
         terminal.draw(|x| render(x, &state))?;
         let timeout = Duration::from_secs_f32(1.0 / 2000.0);
         if event::poll(timeout)? {
@@ -91,7 +99,8 @@ fn render(frame: &mut Frame, state: &State) {
     let tabs = Tabs::new(vec!["Tab1", "Tab2", "Tab3", "Tab4"])
         .select(state.tab_num)
         .block(cyan_block)
-        .highlight_style(Style::default().cyan());
+        .style(Style::default().cyan())
+        .highlight_style(Style::default().magenta());
     //let area = Rect::new(3, 3, (frame.area().width / 2) - 1, frame.area().height - 6);
     //frame.render_widget(cyan_block, cyan_area);
     frame.render_widget(tabs, cyan_area);
@@ -113,8 +122,13 @@ fn render(frame: &mut Frame, state: &State) {
     frame.render_widget(Paragraph::new("Title"), title_area);
     let gauge = Gauge::default()
         .block(Block::new())
-        .gauge_style(Style::new().italic().magenta().bg(Color::Cyan))
-        .ratio(state.gauge_progress / 100.0)
+        .gauge_style(
+            Style::new()
+                .italic()
+                .fg(state.gauge_state.fg)
+                .bg(state.gauge_state.bg),
+        )
+        .ratio(state.gauge_state.progress / 100.0)
         .label("")
         .use_unicode(true);
     let gauge_area = Rect::new(layout[1].x + 4, layout[1].y + 6, layout[1].width - 6, 1);
@@ -153,13 +167,6 @@ fn next_tab(state: &mut State, settings: &Settings) {
 
 fn prev_tab(state: &mut State, settings: &Settings) {
     state.tab_num = (settings.max_tabs + state.tab_num - 1) % settings.max_tabs
-}
-
-fn advance_gauge(state: &mut State) {
-    state.gauge_progress = (state.gauge_progress + 0.1).clamp(0.0, 100.0);
-    if state.gauge_progress == 100.0 {
-        state.gauge_progress = 0.0;
-    }
 }
 /*
 let user = Command::new("").output();version
