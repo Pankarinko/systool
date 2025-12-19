@@ -46,11 +46,11 @@ struct State {
 fn run(mut terminal: DefaultTerminal) -> Result<()> {
     let mut state = State {
         tab_num: 0,
-        gauge_progress: 10.0,
+        gauge_progress: 100.0,
     };
     let settings = Settings { max_tabs: 4 };
     loop {
-        advance_gauge(&mut state, &settings);
+        advance_gauge(&mut state);
         terminal.draw(|x| render(x, &state))?;
         let timeout = Duration::from_secs_f32(1.0 / 2000.0);
         if event::poll(timeout)? {
@@ -113,17 +113,17 @@ fn render(frame: &mut Frame, state: &State) {
     frame.render_widget(Paragraph::new("Title"), title_area);
     let gauge = Gauge::default()
         .block(Block::new())
-        .gauge_style(Style::new().italic())
+        .gauge_style(Style::new().italic().magenta().bg(Color::Cyan))
         .ratio(state.gauge_progress / 100.0)
         .label("")
         .use_unicode(true);
-    let gauge_area = Rect::new(layout[1].x + 5, layout[1].y + 6, layout[1].width - 6, 1);
+    let gauge_area = Rect::new(layout[1].x + 4, layout[1].y + 6, layout[1].width - 6, 1);
     frame.render_widget(gauge, gauge_area);
 }
 
 fn set_gauge_ratio(ratio: &mut f64) {
     let new_ratio = *ratio + 0.05;
-    if new_ratio == 1.05 {
+    if new_ratio == 1.00 {
         *ratio = 0.05;
     } else {
         *ratio = new_ratio;
@@ -155,8 +155,11 @@ fn prev_tab(state: &mut State, settings: &Settings) {
     state.tab_num = (settings.max_tabs + state.tab_num - 1) % settings.max_tabs
 }
 
-fn advance_gauge(state: &mut State, settings: &Settings) {
-    state.gauge_progress = (state.gauge_progress + 0.1).clamp(10.0, 100.0);
+fn advance_gauge(state: &mut State) {
+    state.gauge_progress = (state.gauge_progress + 0.1).clamp(0.0, 100.0);
+    if state.gauge_progress == 100.0 {
+        state.gauge_progress = 0.0;
+    }
 }
 /*
 let user = Command::new("").output();version
