@@ -1,5 +1,6 @@
 mod gauge_state;
 mod reader;
+
 use color_eyre::Result;
 use core::str;
 use crossterm::event::{self, Event, KeyCode};
@@ -51,9 +52,9 @@ fn run(mut terminal: DefaultTerminal) -> Result<()> {
         tab_num: 0,
         gauge_state: GaugeState {
             progress: 0.0,
-            rainbow_state: RainbowColor::Red(Color::Yellow),
-            bg: Color::Red,
-            fg: Color::Yellow,
+            rainbow_state: RainbowColor::Yellow(Color::Rgb(126, 31, 134)),
+            bg: Color::Rgb(150, 131, 236),
+            fg: Color::Rgb(126, 31, 134),
         },
     };
     let settings = Settings { max_tabs: 4 };
@@ -131,17 +132,8 @@ fn render(frame: &mut Frame, state: &State) {
         .ratio(state.gauge_state.progress / 100.0)
         .label("")
         .use_unicode(true);
-    let gauge_area = Rect::new(layout[1].x + 4, layout[1].y + 6, layout[1].width - 6, 1);
+    let gauge_area = Rect::new(layout[1].x + 4, layout[1].y + 6, layout[1].width - 6, 2);
     frame.render_widget(gauge, gauge_area);
-}
-
-fn set_gauge_ratio(ratio: &mut f64) {
-    let new_ratio = *ratio + 0.05;
-    if new_ratio == 1.00 {
-        *ratio = 0.05;
-    } else {
-        *ratio = new_ratio;
-    }
 }
 
 fn read_data() {
