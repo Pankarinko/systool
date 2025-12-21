@@ -1,5 +1,6 @@
 mod gauge_state;
 mod reader;
+mod theme;
 
 use color_eyre::Result;
 use core::str;
@@ -20,6 +21,9 @@ use std::{
     vec,
 };
 use std::{fs, time::Duration};
+
+use crate::theme::ColorTheme;
+
 type GaugeState = gauge_state::GaugeState;
 type RainbowColor = gauge_state::RainbowColor;
 
@@ -40,6 +44,7 @@ fn main() -> Result<()> {
 
 struct Settings {
     max_tabs: usize,
+    theme: ColorTheme,
 }
 
 struct State {
@@ -57,10 +62,13 @@ fn run(mut terminal: DefaultTerminal) -> Result<()> {
             fg: Color::Rgb(126, 31, 134),
         },
     };
-    let settings = Settings { max_tabs: 4 };
+    let settings = Settings {
+        max_tabs: 4,
+        theme: theme::set_color_theme(),
+    };
     loop {
         state.gauge_state.advance_gauge();
-        terminal.draw(|x| render(x, &state))?;
+        terminal.draw(|x| render(x, &settings, &state))?;
         let timeout = Duration::from_secs_f32(1.0 / 2000.0);
         if event::poll(timeout)? {
             if let Event::Key(key) = event::read()? {
@@ -81,14 +89,15 @@ fn run(mut terminal: DefaultTerminal) -> Result<()> {
     }
 }
 
-fn render(frame: &mut Frame, state: &State) {
+fn render(frame: &mut Frame, settings: &Settings, state: &State) {
     let layout = Layout::default()
         .direction(Direction::Horizontal)
         .constraints(vec![Constraint::Percentage(50), Constraint::Percentage(50)])
         .split(frame.area());
     let cyan_block = Block::bordered()
         .style(Style::new().bold())
-        .border_style(Style::new().cyan().bold());
+        .border_style(Style::new().fg(settings.theme.main_left))
+        .bold();
     let cyan_area = Rect::new(
         layout[0].x + 2,
         layout[0].y + 2,
@@ -100,8 +109,8 @@ fn render(frame: &mut Frame, state: &State) {
     let tabs = Tabs::new(vec!["Tab1", "Tab2", "Tab3", "Tab4"])
         .select(state.tab_num)
         .block(cyan_block)
-        .style(Style::default().cyan())
-        .highlight_style(Style::default().magenta());
+        .style(Style::default().fg(settings.theme.main_left))
+        .highlight_style(Style::default().fg(settings.theme.main_right));
     //let area = Rect::new(3, 3, (frame.area().width / 2) - 1, frame.area().height - 6);
     //frame.render_widget(cyan_block, cyan_area);
     frame.render_widget(tabs, cyan_area);
@@ -111,7 +120,7 @@ fn render(frame: &mut Frame, state: &State) {
         .split(layout[1]);
     let magenta_block = Block::bordered()
         .style(Style::new().bold())
-        .border_style(Style::new().magenta().bold());
+        .border_style(Style::new().fg(settings.theme.main_right).bold());
     let magenta_area = Rect::new(
         layout[1].x + 2,
         layout[1].y + 2,
